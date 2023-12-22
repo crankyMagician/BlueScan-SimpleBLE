@@ -1,5 +1,6 @@
 import React from 'react';
 import BluetoothScanner from './components/BluetoothScanner';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
   return (
