@@ -80,7 +80,6 @@ const BluetoothDeviceScanner = () => {
         }
     };
 
-
     return (
         <div className="container my-4">
             <button className="btn btn-primary mb-3" onClick={scanDevices} disabled={isScanning}>
