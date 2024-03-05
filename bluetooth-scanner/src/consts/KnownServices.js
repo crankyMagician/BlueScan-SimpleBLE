@@ -50,8 +50,6 @@ export const knownServices = {
     '00001843-0000-1000-8000-00805f9b34fb': 'Device Time',
     '00001844-0000-1000-8000-00805f9b34fb': 'Media Control',
     '00001845-0000-1000-8000-00805f9b34fb': 'Generic Media Control Service',
-// Continue adding more services as needed
-
     // Add other well-known services here with their 128-bit UUIDs
 };
 
