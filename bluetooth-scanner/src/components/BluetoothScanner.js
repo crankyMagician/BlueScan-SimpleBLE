@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
-import { knownServices } from '../consts/KnownServices';
-import { knownCharacteristics } from '../consts/KnownCharacteristics';
+// Corrected imports to match the exported constants
+import { TACX_NEO_SERVICE_UUID, WRITE_CHARACTERISTIC_UUID } from '../consts/tacXConsts';
 
 const BluetoothDeviceScanner = () => {
     const [devices, setDevices] = useState([]);
     const [isScanning, setIsScanning] = useState(false);
 
-    const getServiceName = uuid => knownServices[uuid] || `Unknown Service (${uuid})`;
-    const getCharacteristicName = uuid => knownCharacteristics[uuid] || `Unknown Characteristic (${uuid})`;
-
-    const addDevice = (device, services) => {
-        setDevices(prevDevices => [...prevDevices, { device, services }]);
+    const addDevice = (device) => {
+        setDevices(prevDevices => [...prevDevices, device]);
     };
 
     const disconnectDevice = (deviceIndex) => {
-        const device = devices[deviceIndex].device;
+        const device = devices[deviceIndex];
         if (device.gatt.connected) {
             device.gatt.disconnect();
             console.log(`Disconnected from ${device.name}`);
@@ -26,44 +23,18 @@ const BluetoothDeviceScanner = () => {
         setIsScanning(true);
         try {
             const options = {
-                acceptAllDevices: true,
-                optionalServices: Object.keys(knownServices).length > 0 ? Object.keys(knownServices) : undefined
+                filters: [{ services: [TACX_NEO_SERVICE_UUID.toLowerCase()] }],
             };
 
             const device = await navigator.bluetooth.requestDevice(options);
+            console.log(`Connected to ${device.name}`);
             const server = await device.gatt.connect();
-
             device.addEventListener('gattserverdisconnected', () => {
                 console.log(`Device ${device.name} got disconnected. Trying to reconnect...`);
                 reconnectDevice(device);
             });
 
-            let services;
-            try {
-                services = await server.getPrimaryServices();
-            } catch (serviceError) {
-                console.error('Error fetching services:', serviceError);
-                services = []; // Proceed with an empty array if no services are found
-            }
-
-            const servicesWithCharacteristics = await Promise.all(services.map(async service => {
-                let characteristics;
-                try {
-                    characteristics = await service.getCharacteristics();
-                } catch (charError) {
-                    console.error('Error fetching characteristics:', charError);
-                    characteristics = []; // Proceed with an empty array if no characteristics are found
-                }
-                return {
-                    service: getServiceName(service.uuid),
-                    characteristics: characteristics.map(c => ({
-                        uuid: c.uuid,
-                        name: getCharacteristicName(c.uuid)
-                    }))
-                };
-            }));
-
-            addDevice(device, servicesWithCharacteristics);
+            addDevice(device);
         } catch (error) {
             console.error('Error in scanning for devices:', error);
         } finally {
@@ -80,35 +51,68 @@ const BluetoothDeviceScanner = () => {
         }
     };
 
+    // Example resistance calculation - adapt based on your C# logic
+    const calculateResistanceByte = (totalResistancePercentValue) => {
+        // Placeholder calculation, replace with actual logic from your C# code
+        return 0xFF; // Example return value
+    };
+
+    // Example checksum calculation - adapt based on your C# logic
+    const calculateChecksum = (dataPacket) => {
+        let checksum = 0;
+        for (let i = 0; i < dataPacket.length - 1; i++) {
+            checksum ^= dataPacket[i];
+        }
+        return checksum;
+    };
+
+    // Function to send resistance command to Tacx Neo
+    const sendResistanceCommand = async (device, totalResistancePercentValue) => {
+        const service = await device.gatt.getPrimaryService(TACX_NEO_SERVICE_UUID);
+        const characteristic = await service.getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+
+        // Generate data packet based on totalResistancePercentValue, following the logic in your C# example
+        const dataPacket = new Uint8Array(13);
+        // Populate dataPacket here based on your C# code logic
+        // Example values, replace with your actual logic
+        dataPacket[0] = 0xA4; // Sync byte
+        dataPacket[1] = 0x09; // Length byte
+        dataPacket[2] = 0x4F; // Message ID
+        dataPacket[3] = 0x05; // Channel number
+        dataPacket[4] = 0x30; // Data page number
+        dataPacket[11] = calculateResistanceByte(totalResistancePercentValue); // Placeholder for resistance calculation
+        dataPacket[12] = calculateChecksum(dataPacket); // Checksum byte
+
+        try {
+            await characteristic.writeValue(dataPacket);
+            console.log('Resistance command sent successfully');
+        } catch (error) {
+            console.error('Failed to send resistance command', error);
+        }
+    };
+
     return (
         <div className="container my-4">
             <button className="btn btn-primary mb-3" onClick={scanDevices} disabled={isScanning}>
                 {isScanning ? 'Scanning...' : 'Scan for Bluetooth Devices'}
             </button>
             <ul className="list-group">
-                {devices.map((item, index) => (
+                {devices.map((device, index) => (
                     <li key={index} className="list-group-item">
-                        <strong>{item.device.name || 'Unnamed Device'}</strong>
+                        <strong>{device.name || 'Unnamed Device'}</strong>
                         <button
                             className="btn btn-danger btn-sm float-right"
                             onClick={() => disconnectDevice(index)}
                         >
                             Disconnect
                         </button>
-                        <ul className="list-group list-group-flush">
-                            {item.services.map((service, serviceIndex) => (
-                                <li key={serviceIndex} className="list-group-item">
-                                    <span className="text-primary">Service:</span> {service.service}
-                                    <ul className="list-group">
-                                        {service.characteristics.map((characteristic, charIndex) => (
-                                            <li key={charIndex} className="list-group-item">
-                                                <span className="text-success">Characteristic:</span> {characteristic.name}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </li>
-                            ))}
-                        </ul>
+                        {/* Example button to send a resistance command, adjust as needed */}
+                        <button
+                            className="btn btn-secondary btn-sm float-right mr-2"
+                            onClick={() => sendResistanceCommand(device, 10)} // Example value, replace with actual user input or control mechanism
+                        >
+                            Set Resistance
+                        </button>
                     </li>
                 ))}
             </ul>
